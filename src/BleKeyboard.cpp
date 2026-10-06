@@ -201,6 +201,15 @@ void BleKeyboard::sendReport(KeyReport* keys)
 
 void BleKeyboard::sendReport(MediaKeyReport* keys)
 {
+  // [dfotreg patch] Core 3.x NimBLE wrapper: BLEService::addCharacteristic dedups
+  // same-UUID characteristics, so this media report characteristic (0x2a4d, created
+  // after the keyboard input/output reports) is never registered in the GATT table
+  // and its m_pService stays uninitialized -> notify() crashes on it
+  // (assert getService()!=nullptr / LoadProhibited). A registered characteristic
+  // gets its handle written by NimBLE at registration; an unregistered one keeps
+  // the NULL_HANDLE (0xFFFF) from the constructor. Skip the report in that case.
+  if (this->inputMediaKeys->getHandle() == 0xFFFF)
+    return;
   if (this->isConnected())
   {
     this->inputMediaKeys->setValue((uint8_t*)keys, sizeof(MediaKeyReport));
